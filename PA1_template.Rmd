@@ -1,25 +1,83 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course 5 week 2 report"
+output: html_document
 ---
 
+# Loading and preprocessing the data
+The following code is simple and straightforward, we read the document "activity.csv" and store it in a variable similarly called "activity". For this code to run correctly, you must set your R working directory to the location of the "activity.csv" file. We also load the libraries 'ggplot2' and 'dplyr' since we will be using them for this activity. 
+```{r}
+library(ggplot2)
+library(dplyr)
+activity <- read.csv("activity.csv")
+```
 
-## Loading and preprocessing the data
+# What is mean total number of steps taken per day?
+The following code first groups the data in 'activity' by date, and then binds a column to the resulting data set containing the total number of steps for each given day. Then, a histogram is created using ggplot, to visualize the distribution of total number of steps per day.
+```{r}
+total_steps <- group_by(activity, date) %>% summarise(total_steps_day = sum(steps))
+ggplot(total_steps, aes(x = total_steps_day)) + geom_histogram() +
+      labs(title = "Histogram of total steps taken each day", x = "Total number of steps")
+```
 
+Now, we proceed to calculate the mean and median of the total number of steps taken per day with the following simple two lines of code:
+```{r}
+mean(total_steps$total_steps_day, na.rm = TRUE)
+median(total_steps$total_steps_day, na.rm = TRUE)
+```
 
+# What is the average daily activity pattern?
+For this task, we will create a time series to visualize the daily activity pattern. First, we group the data set 'activity' by interval, and assign it to the variable 'average_steps'. Then, we bind the column 'avg_steps_int' to 'average steps' containing the mean of the total number of steps of each interval across all days. 
+```{r}
+average_steps <- group_by(activity, interval) %>% summarise(avg_steps_int = mean(steps, na.rm = TRUE))
+ggplot(average_steps, aes(x = interval, y = avg_steps_int)) + geom_line() +
+      labs(title = "Average number of steps taken across all days by interval", x = "Interval", y = "Average steps")
+```
 
-## What is mean total number of steps taken per day?
+We then extract the 5-minute interval that, on average across all the days in the dataset, contains the maximum number of steps.
+```{r}
+filter(average_steps, average_steps$avg_steps_int == max(average_steps$avg_steps_int))
+```
 
+# Imputing missing values
+The presence of missing days may introduce bias into some calculations or summaries of the data. First, we wil callculate the total number of missing values (NA's) in the dataset. 
+```{r}
+sum(is.na(activity$steps))
+```
+Then, we will devise a strategy for filling in all of the missing values in the dataset. In this case, we will simply replace all of the NA's with the mean of the total number of steps in the dataset, and then create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+activity_mean <- mean(activity$steps, na.rm = TRUE)
+activity$steps[is.na(activity$steps)] <- activity_mean
+```
+Now, we will make a histogram of the total number of steps taken each day and calculate the mean and median total number of steps taken per day.
+```{r}
+total_steps <- group_by(activity, date) %>% summarise(total_steps_day = sum(steps))
+ggplot(total_steps, aes(x = total_steps_day)) + geom_histogram() +
+      labs(title = "Histogram of total steps taken each day", x = "Total number of steps")
+```
 
+We can observe these values differ from the estimates from the first part of the assignment. Because all of the NA's where substituted with the mean of the total steps per day, the effect on the histogram is predictable, with the bar corresponding to the count of the mean number of days experiencing a dramatic increase, while the rest of the histogram remains unchanged. 
 
-## What is the average daily activity pattern?
+We now calculate the mean and median of the total of number of steps taken per day again:
+```{r}
+mean(total_steps$total_steps_day)
+median(total_steps$total_steps_day)
+```
+As one would predict, the mean remains unchanged since the added values are all the value of the mean in the first place, having no effect on this meassurement. 
 
+# Are there differences in activity patterns by interval between weekdays and weekends?
+In order to determine a possible difference in activity patterns between weekdays and weekends, we first need to separate the data on both categories. The date column, which was a character column, was first converted into a Date format using the `as.Date()` function. Then, the `weekdays()` function was used to change the date column in to a character vector again, this time containing the day of the day instead of the specific date. Finally, an `ifelse()` function was called to classify the the weekdays into 'weekend' if their value was either 'Saturday' or 'Sunday'; or 'weekday' otherwise. This classification was stored in a new column called 'dayclass'.
 
+Once this was done, the 'activity' data set was grouped by interval and then by dayclass, and then summarized by calculating the average steps per day. This was then plotted as a time series with the intervals on the x axis, and a `facet_wrap()` was used, with the argument 'dayclass' in order to split the plots into 2 time series, one for weekends and one for weekdays.
+```{r}
+activity$date <- as.Date(activity$date)
+days <- weekdays(activity$date)
+activity$dayclass <- ifelse(days %in% c('Saturday', 'Sunday'), 
+                            'weekend', 'weekday')
+activity <- group_by(activity, interval, dayclass) %>% summarise(avg_steps = mean(steps), .groups = 'drop')
+ggplot(activity, aes(x = interval, y = avg_steps)) + geom_line() + 
+      facet_wrap(~dayclass) + labs(title = "Average number of steps per interval (weekdays/weekends)",
+                                   x = "Interval", y = "Average steps")
+```
 
-## Imputing missing values
+Analizing the resulting time series, we can observe a noticeable spike in the intervals between 750 and 1000 for the weekdays. The weekends on the other hand, mantain more stable activity levels, particularly in the intervals between 750 and 2000.
 
-
-
-## Are there differences in activity patterns between weekdays and weekends?
